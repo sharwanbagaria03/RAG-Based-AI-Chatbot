@@ -1,0 +1,25 @@
+# Environment Variables & Secrets (CRITICAL)
+.env
+*.env
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+
+# Python Bytecode & Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local Data / Downloaded PDFs
+Ebook-Agentic-AI.pdf
+*.pdf
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

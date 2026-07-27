@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "category": "Core Concept",
+    "question": "What is Agentic AI and how does it differ from traditional generative AI models?"
+  },
+  {
+    "id": 2,
+    "category": "Architecture",
+    "question": "What are the core architectural components of an Autonomous AI Agent?"
+  },
+  {
+    "id": 3,
+    "category": "Multi-Agent Systems",
+    "question": "How do multi-agent frameworks manage task decomposition, orchestration, and collaboration?"
+  },
+  {
+    "id": 4,
+    "category": "Memory & Vector DBs",
+    "question": "What role do Vector Databases and long-term memory play in Agentic Workflows?"
+  },
+  {
+    "id": 5,
+    "category": "Governance & Security",
+    "question": "What security, alignment, and governance challenges are associated with Agentic AI?"
+  },
+  {
+    "id": 6,
+    "category": "Future Outlook",
+    "question": "What future trends and enterprise applications of Agentic Workflows are highlighted in the book?"
+  }
+]
