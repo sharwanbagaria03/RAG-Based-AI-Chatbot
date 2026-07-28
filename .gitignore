@@ -13,6 +13,9 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
+*.pkl
+kg_cache.pkl
+eval/kg_cache.pkl
 
 # Local Data / Downloaded PDFs
 Ebook-Agentic-AI.pdf

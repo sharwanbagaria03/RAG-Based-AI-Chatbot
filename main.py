@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List
 import logging
+from contextlib import asynccontextmanager
 
 import config
 from ingest import ingest_pdf_to_pinecone
@@ -11,32 +12,25 @@ from rag_graph import run_rag_pipeline
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from contextlib import asynccontextmanager
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI Lifespan context: Auto-ingest PDF into Pinecone on server startup if needed."""
-    logger.info("Initializing Agentic AI RAG Backend...")
+    logger.info("Initializing RAG Backend...")
     try:
         if config.OPENAI_API_KEY and config.PINECONE_API_KEY:
-            logger.info("Checking Pinecone index & auto-ingesting PDF if empty...")
             total_chunks = ingest_pdf_to_pinecone()
-            logger.info(f"RAG Backend Ready! ({total_chunks} vectors in Pinecone)")
+            logger.info(f"RAG Backend ready with {total_chunks} vectors.")
         else:
-            logger.warning("API keys missing in .env. Skipping auto-ingestion.")
+            logger.warning("API keys missing in environment.")
     except Exception as e:
-        logger.error(f"Auto-ingestion check on startup failed: {e}")
+        logger.error(f"Startup check failed: {e}")
     yield
-    logger.info("Shutting down RAG Backend...")
 
 app = FastAPI(
-    title="Agentic AI eBook RAG Chatbot API",
-    description="LangGraph & Pinecone RAG API strictly grounded in the Agentic AI eBook knowledge base.",
+    title="Agentic AI RAG Chatbot API",
     version="1.0.0",
     lifespan=lifespan
 )
 
-# Enable CORS for frontend integrations
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,7 +39,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Request / Response Models ---
 class QueryRequest(BaseModel):
     question: str
 
@@ -65,8 +58,7 @@ class IngestResponse(BaseModel):
     message: str
     total_chunks: int
 
-# --- API Endpoints ---
-@app.get("/health", summary="Health Check")
+@app.get("/health")
 def health_check():
     return {
         "status": "healthy",
@@ -75,22 +67,20 @@ def health_check():
         "embedding_model": config.EMBEDDING_MODEL
     }
 
-@app.post("/ingest", response_model=IngestResponse, summary="Ingest Agentic AI eBook PDF into Pinecone")
+@app.post("/ingest", response_model=IngestResponse)
 def ingest_pdf():
-    """Triggers downloading the Agentic AI eBook, splitting into chunks, embedding, and indexing in Pinecone."""
     try:
         total_chunks = ingest_pdf_to_pinecone()
         return IngestResponse(
-            message=f"Successfully ingested and indexed PDF into Pinecone index '{config.PINECONE_INDEX_NAME}'.",
+            message=f"Indexed PDF into index '{config.PINECONE_INDEX_NAME}'.",
             total_chunks=total_chunks
         )
     except Exception as e:
         logger.error(f"Ingestion failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/query", response_model=QueryResponse, summary="Query the RAG Pipeline")
+@app.post("/query", response_model=QueryResponse)
 def query_rag(request: QueryRequest):
-    """Executes the 3-node LangGraph pipeline to retrieve chunks, grade relevance, and generate a grounded answer."""
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     

@@ -1,11 +1,9 @@
 import streamlit as st
 import json
 import os
-import requests
 import config
 from rag_graph import run_rag_pipeline
 
-# Page Config
 st.set_page_config(
     page_title="Agentic AI RAG Chatbot",
     page_icon="📖",
@@ -13,7 +11,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for rich aesthetics
 st.markdown("""
 <style>
     .main-header {
@@ -56,122 +53,106 @@ st.markdown("""
         font-size: 0.85rem;
         display: inline-block;
     }
-    .chunk-card {
-        border-left: 3px solid #6366F1;
-        background-color: #F9FAFB;
-        padding: 10px 14px;
-        border-radius: 4px;
-        margin-bottom: 8px;
-        font-size: 0.9rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# Load sample queries
 @st.cache_data
 def load_sample_queries():
-    if os.path.exists("sample_queries.json"):
+    eval_path = os.path.join("eval", "sample_queries.json")
+    if os.path.exists(eval_path):
+        with open(eval_path, "r") as f:
+            return json.load(f)
+    elif os.path.exists("sample_queries.json"):
         with open("sample_queries.json", "r") as f:
             return json.load(f)
     return []
 
 sample_queries = load_sample_queries()
 
-# Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Auto-Ingest Check on Initial Load
 if "ingested" not in st.session_state:
     try:
         from ingest import ingest_pdf_to_pinecone
         ingest_pdf_to_pinecone()
         st.session_state["ingested"] = True
-    except Exception as e:
+    except Exception:
         pass
 
-# Sidebar Controls
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/artificial-intelligence.png", width=64)
     st.title("Settings & Ingestion")
     st.markdown("---")
     
-    st.subheader("⚙️ System Status")
+    st.subheader("System Status")
     openai_ok = bool(config.OPENAI_API_KEY)
     pinecone_ok = bool(config.PINECONE_API_KEY)
     
-    st.write(f"**OpenAI API Key:** {'✅ Configured' if openai_ok else '❌ Missing'}")
-    st.write(f"**Pinecone API Key:** {'✅ Configured' if pinecone_ok else '❌ Missing'}")
+    st.write(f"**OpenAI API Key:** {'Configured' if openai_ok else 'Missing'}")
+    st.write(f"**Pinecone API Key:** {'Configured' if pinecone_ok else 'Missing'}")
     st.write(f"**Index:** `{config.PINECONE_INDEX_NAME}`")
     st.write(f"**LLM:** `{config.LLM_MODEL}`")
     
     st.markdown("---")
-    st.subheader("📥 Ingestion Control")
+    st.subheader("Ingestion Control")
     if st.button("Trigger PDF Ingestion", use_container_width=True):
-        with st.spinner("Downloading PDF and indexing into Pinecone..."):
+        with st.spinner("Indexing PDF into Pinecone..."):
             try:
                 from ingest import ingest_pdf_to_pinecone
                 total = ingest_pdf_to_pinecone()
-                st.success(f"Ingested {total} chunks into Pinecone!")
+                st.success(f"Ingested {total} chunks!")
             except Exception as err:
                 st.error(f"Ingestion Error: {err}")
                 
     st.markdown("---")
-    st.subheader("💡 Sample Queries")
-    st.caption("Click any query below to run it:")
+    st.subheader("Sample Queries")
     
     selected_sample = None
     for sq in sample_queries:
-        if st.button(f"📌 {sq['question']}", key=f"sq_{sq['id']}", use_container_width=True):
+        if st.button(f"{sq['question']}", key=f"sq_{sq['id']}", use_container_width=True):
             selected_sample = sq['question']
 
-# Header
-st.markdown('<div class="main-header">📖 Agentic AI eBook Chatbot</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">Agentic AI eBook Chatbot</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-header">LangGraph & Pinecone RAG Pipeline strictly grounded in '
+    '<div class="sub-header">Grounded in '
     '<a href="https://konverge.ai/pdf/Ebook-Agentic-AI.pdf" target="_blank">Ebook-Agentic-AI.pdf</a></div>',
     unsafe_allow_html=True
 )
 
-# Display Existing Chat Messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant" and "confidence_score" in msg:
             score = msg["confidence_score"]
             if score >= 0.75:
-                badge_html = f'<span class="confidence-badge-high">🟢 High Confidence ({score:.0%})</span>'
+                badge_html = f'<span class="confidence-badge-high">High Confidence ({score:.0%})</span>'
             elif score >= 0.4:
-                badge_html = f'<span class="confidence-badge-medium">🟡 Medium Confidence ({score:.0%})</span>'
+                badge_html = f'<span class="confidence-badge-medium">Medium Confidence ({score:.0%})</span>'
             else:
-                badge_html = f'<span class="confidence-badge-low">🔴 Low Confidence ({score:.0%})</span>'
+                badge_html = f'<span class="confidence-badge-low">Low Confidence ({score:.0%})</span>'
                 
             st.markdown(badge_html, unsafe_allow_html=True)
             
-            # Display Context Chunks Drawer
             if msg.get("retrieved_chunks"):
-                with st.expander(f"📚 View Retrieved Context Chunks ({len(msg['retrieved_chunks'])} sources)"):
+                with st.expander(f"View Context Sources ({len(msg['retrieved_chunks'])})"):
                     for idx, chunk in enumerate(msg["retrieved_chunks"], 1):
-                        st.markdown(f"**Source {idx} (Page {chunk['page']}, Similarity Score: {chunk['similarity_score']:.2f})**")
+                        st.markdown(f"**Source {idx} (Page {chunk['page']}, Score: {chunk['similarity_score']:.2f})**")
                         st.text(chunk["content"])
                         st.markdown("---")
 
-# Process Prompt Input (User text input or Sample Query selection)
 user_prompt = st.chat_input("Ask a question about Agentic AI...")
 if selected_sample:
     user_prompt = selected_sample
 
 if user_prompt:
-    # Add User Message to State & Display
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Process via RAG Graph
     with st.chat_message("assistant"):
-        with st.spinner("Retrieving contexts & generating grounded response..."):
+        with st.spinner("Generating response..."):
             try:
-                # Run RAG Pipeline directly
                 res = run_rag_pipeline(user_prompt)
                 
                 answer = res["answer"]
@@ -180,23 +161,21 @@ if user_prompt:
                 
                 st.markdown(answer)
                 
-                # Confidence badge
                 if confidence >= 0.75:
-                    badge_html = f'<span class="confidence-badge-high">🟢 High Confidence ({confidence:.0%})</span>'
+                    badge_html = f'<span class="confidence-badge-high">High Confidence ({confidence:.0%})</span>'
                 elif confidence >= 0.4:
-                    badge_html = f'<span class="confidence-badge-medium">🟡 Medium Confidence ({confidence:.0%})</span>'
+                    badge_html = f'<span class="confidence-badge-medium">Medium Confidence ({confidence:.0%})</span>'
                 else:
-                    badge_html = f'<span class="confidence-badge-low">🔴 Low Confidence ({confidence:.0%})</span>'
+                    badge_html = f'<span class="confidence-badge-low">Low Confidence ({confidence:.0%})</span>'
                 st.markdown(badge_html, unsafe_allow_html=True)
                 
                 if chunks:
-                    with st.expander(f"📚 View Retrieved Context Chunks ({len(chunks)} sources)"):
+                    with st.expander(f"View Context Sources ({len(chunks)})"):
                         for idx, chunk in enumerate(chunks, 1):
-                            st.markdown(f"**Source {idx} (Page {chunk['page']}, Similarity Score: {chunk['similarity_score']:.2f})**")
+                            st.markdown(f"**Source {idx} (Page {chunk['page']}, Score: {chunk['similarity_score']:.2f})**")
                             st.text(chunk["content"])
                             st.markdown("---")
                             
-                # Save assistant response to state
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": answer,
